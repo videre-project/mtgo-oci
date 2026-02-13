@@ -1,0 +1,56 @@
+services:
+  mtgosdk-x11:
+    container_name: mtgosdk-x11
+    extends:
+      file: ../common.yml
+      service: x11-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: videreproject/mtgo:x11
+    image: videreproject/mtgosdk:x11
+    volumes:
+      - ${MTGOSDK_PATH:-../../MTGOSDK}:/workspace
+      - mtgo_wine-data-x11:/home/wine/.wine
+
+  mtgosdk-wayland:
+    container_name: mtgosdk-wayland
+    extends:
+      file: ../common.yml
+      service: wayland-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: videreproject/mtgo:wayland
+    image: videreproject/mtgosdk:wayland
+    volumes:
+      - ${MTGOSDK_PATH:-../../MTGOSDK}:/workspace
+      - mtgo_wine-data-wayland:/home/wine/.wine
+
+  mtgosdk-headless:
+    container_name: mtgosdk-headless
+    extends:
+      file: ../common.yml
+      service: headless-base
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: videreproject/mtgo:headless
+    image: videreproject/mtgosdk:headless
+    command: ["/bin/bash"]
+    ports:
+      - "5901:5900"
+    volumes:
+      - ${MTGOSDK_PATH:-../../MTGOSDK}:/workspace
+      - mtgo_wine-data-headless:/home/wine/.wine
+
+volumes:
+  mtgo_wine-data-x11:
+    external: true
+  mtgo_wine-data-wayland:
+    external: true
+  mtgo_wine-data-headless:
+    external: true

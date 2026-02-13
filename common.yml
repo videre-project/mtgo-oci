@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Base template for X11 display protocol
+  x11-base:
+    environment:
+      - DISPLAY=${DISPLAY}
+      - WINEDEBUG=-all
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    tty: true
+
+  # Base template for Wayland display protocol
+  wayland-base:
+    environment:
+      - DISPLAY=${DISPLAY} # XWayland fallback
+      - WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}
+      - XDG_RUNTIME_DIR=/tmp/runtime-dir
+      - WINEDEBUG=-all
+    volumes:
+      - ${XDG_RUNTIME_DIR:-/run/user/1000}/wayland-0:/tmp/runtime-dir/wayland-0
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    tty: true
+
+  # Base template for Headless operation using Xvfb
+  headless-base:
+    environment:
+      - DISPLAY=:99
+      - RESOLUTION=1280x1024x24
+      - START_VNC=${START_VNC:-false}
+      - WINEDEBUG=-all
+    tty: true
