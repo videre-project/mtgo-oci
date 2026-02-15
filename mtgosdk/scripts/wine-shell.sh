@@ -11,7 +11,7 @@ alias run='wine-run'
 alias wine-dotnet='wine C:\\dotnet\\dotnet.exe'
 echo "----------------------------------------------------"
 echo "  Wine Shell Initialized"
-echo "  'dotnet build' -> Produces win-x64 binaries (Framework-Dependent)"
+echo "  'dotnet build' -> Produces framework-dependent binaries"
 echo "  'run' -> Runs 'wine-run' (Build + Wine Run)"
 echo "  'wine-dotnet' -> Runs the native Windows .NET SDK in Wine"
 echo "----------------------------------------------------"
