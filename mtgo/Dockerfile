@@ -30,6 +30,8 @@ RUN useradd -u $WINE_UID -d /home/wine -m -s /bin/bash $WINE_USER
 USER wine
 ENV WINEPREFIX=/home/wine/.wine
 ENV WINEARCH=win64
+ENV WINEDEBUG=-all
+ENV DOTNET_ROOT=C:\\dotnet
 WORKDIR /home/wine
 
 # Copy scripts
