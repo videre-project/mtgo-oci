@@ -13,21 +13,33 @@ if [ -z "$PROJECT_OR_SLN" ]; then
   PROJECT_OR_SLN="."
 fi
 
-echo "--- Building $PROJECT_OR_SLN (Framework-Dependent) ---"
+echo "--- Building $PROJECT_OR_SLN ---"
+# Build natively on Linux to maintain ergonomics and lock file compatibility.
 dotnet build "$PROJECT_OR_SLN"
 
-# Get the project name to look for the matching executable
-# If the input contains a path, take the filename. Then strip any C# project/solution extension.
+# Get the project name to look for the matching binary
+# If the input contains a path, take the filename and strip any C# project/solution extension.
 PROJECT_NAME=$(basename "$PROJECT_OR_SLN" | sed -E 's/\.(csproj|sln|fsproj|vbproj)$//')
 
-# Search for the executable in the most common output paths
-if [ -d "bin" ]; then
-    # Prioritize exact matches for .exe or .dll (for tests)
-    EXE_PATH=$(find bin -name "${PROJECT_NAME}.exe" -o -name "${PROJECT_NAME}.dll" | head -n 1)
-    # Fallback to any executable if the exact match wasn't found
-    if [ -z "$EXE_PATH" ]; then
-        EXE_PATH=$(find bin -name "*.exe" | head -n 1)
+# Search for the binary in common output paths
+find_binary() {
+    local base="$1"
+    # Prioritize exact matches for .exe (if built with RID)
+    local found=$(find "$base" -name "${PROJECT_NAME}.exe" | head -n 1)
+    if [ -z "$found" ]; then
+        # Fallback to .dll (portable app built without RID)
+        found=$(find "$base" -name "${PROJECT_NAME}.dll" | head -n 1)
     fi
+    # Secondary fallback to any executable in the tree
+    if [ -z "$found" ]; then
+        found=$(find "$base" -maxdepth 5 -name "*.exe" | head -n 1)
+    fi
+    echo "$found"
+}
+
+EXE_PATH=""
+if [ -d "bin" ]; then
+    EXE_PATH=$(find_binary "bin")
 fi
 
 if [ -z "$EXE_PATH" ]; then
@@ -39,22 +51,29 @@ if [ -z "$EXE_PATH" ]; then
     fi
 
     if [ -n "$BASE_DIR" ] && [ -d "$BASE_DIR/bin" ]; then
-        # Prioritize exact matches for .exe or .dll (for tests)
-        EXE_PATH=$(find "$BASE_DIR/bin" -name "${PROJECT_NAME}.exe" -o -name "${PROJECT_NAME}.dll" | head -n 1)
-        # Fallback to any executable if the exact match wasn't found
-        if [ -z "$EXE_PATH" ]; then
-            EXE_PATH=$(find "$BASE_DIR/bin" -name "*.exe" | head -n 1)
-        fi
+        EXE_PATH=$(find_binary "$BASE_DIR/bin")
     fi
 fi
 
 if [ -f "$EXE_PATH" ]; then
-    echo "--- Running $EXE_PATH via Wine ---"
-    # If it's a DLL, we run it via the windows dotnet host
-    if [[ "$EXE_PATH" == *.dll ]]; then
-        wine "C:\\dotnet\\dotnet.exe" "$EXE_PATH" "$@"
+    # Ensure we use an absolute Unix path first
+    ABS_EXE_PATH=$(realpath "$EXE_PATH")
+    DIR_NAME=$(dirname "$ABS_EXE_PATH")
+    
+    # Convert Unix paths to Windows paths for Wine
+    WIN_EXE_PATH=$(winepath -w "$ABS_EXE_PATH")
+    WIN_DIR_NAME=$(winepath -w "$DIR_NAME")
+
+    echo "--- Running $ABS_EXE_PATH via Wine ---"
+    
+    # Use 'wine cmd /c' to ensure environment variables like PATH and DOTNET_ROOT are handled correctly
+    # We also 'cd' into the directory to help the host resolve dependencies.
+    if [[ "$ABS_EXE_PATH" == *.dll ]]; then
+        # For DLLs, run via the Windows .NET host
+        wine cmd /c "cd /d $WIN_DIR_NAME && C:\\dotnet\\dotnet.exe $WIN_EXE_PATH" "$@"
     else
-        wine "$EXE_PATH" "$@"
+        # For native .exes, run directly
+        wine cmd /c "cd /d $WIN_DIR_NAME && $WIN_EXE_PATH" "$@"
     fi
 else
     echo "Error: Could not find executable for $PROJECT_OR_SLN"
