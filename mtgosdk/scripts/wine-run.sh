@@ -18,8 +18,31 @@ echo "--- Building $PROJECT_OR_SLN ---"
 dotnet build "$PROJECT_OR_SLN"
 
 # Get the project name to look for the matching binary
-# If the input contains a path, take the filename and strip any C# project/solution extension.
-PROJECT_NAME=$(basename "$PROJECT_OR_SLN" | sed -E 's/\.(csproj|sln|fsproj|vbproj)$//')
+# Determine the project name to look for the matching binary.
+# If a .sln is provided, we need to find the actual .csproj it builds to get the correct binary name.
+if [[ "$PROJECT_OR_SLN" == *.sln ]]; then
+    # Find the first .csproj in the directory (assuming standard single-project solution or taking the first one)
+    # This is a heuristic; for multi-project solutions, we might want to be more specific, but this covers the flexible rename case.
+    FOUND_CS=$(find "$(dirname "$PROJECT_OR_SLN")" -name "*.csproj" | head -n 1)
+    if [ -n "$FOUND_CS" ]; then
+        PROJECT_NAME=$(basename "$FOUND_CS" .csproj)
+        PROJECT_DIR=$(dirname "$FOUND_CS")
+    else
+        PROJECT_NAME=$(basename "$PROJECT_OR_SLN" .sln)
+    fi
+elif [[ -d "$PROJECT_OR_SLN" ]]; then
+     # If it's a directory, look for a .csproj inside
+    FOUND_CS=$(find "$PROJECT_OR_SLN" -maxdepth 2 -name "*.csproj" | head -n 1)
+    if [ -n "$FOUND_CS" ]; then
+        PROJECT_NAME=$(basename "$FOUND_CS" .csproj)
+        PROJECT_DIR=$(dirname "$FOUND_CS")
+    else
+        PROJECT_NAME=$(basename "$PROJECT_OR_SLN")
+    fi
+else
+    # Fallback for direct .csproj input
+    PROJECT_NAME=$(basename "$PROJECT_OR_SLN" | sed -E 's/\.(csproj|sln|fsproj|vbproj)$//')
+fi
 
 # Search for the binary in common output paths
 find_binary() {
@@ -52,6 +75,12 @@ if [ -z "$EXE_PATH" ]; then
 
     if [ -n "$BASE_DIR" ] && [ -d "$BASE_DIR/bin" ]; then
         EXE_PATH=$(find_binary "$BASE_DIR/bin")
+    fi
+fi
+
+if [ -z "$EXE_PATH" ]; then
+    if [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR/bin" ]; then
+        EXE_PATH=$(find_binary "$PROJECT_DIR/bin")
     fi
 fi
 
